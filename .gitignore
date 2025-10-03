@@ -1,0 +1,38 @@
+# Original scripts (before refactoring)
+*_original.py
+
+# Data files
+*.csv
+*.zip
+apprenticeships_*/
+
+# macOS files
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp.*
+*.tmp
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/

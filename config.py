@@ -14,8 +14,17 @@ VACANCY_SMALL_PROVIDER_MAX = 3          # Providers with ≤3 positions get aggr
 # Provider categorization thresholds for starts analysis
 STARTS_MIN_THRESHOLD = 3                # Minimum starts in most recent year to show provider separately
 
+# Regional analysis thresholds
+REGION_MIN_THRESHOLD = 10               # Minimum starts in most recent year to show region separately
+
+# Funding type labels
+FUNDING_LEVY = 'Supported by ASA levy funds'
+FUNDING_OTHER = 'Other'
+FUNDING_LEVY_LABEL = 'Large employers (levy-funded)'
+FUNDING_OTHER_LABEL = 'SMEs (other funding)'
+
 # Employers to always show regardless of threshold
-ALWAYS_SHOW_PROVIDERS = ['FOUNDERS & CODERS C.I.C.']
+ALWAYS_SHOW_PROVIDERS = ['FOUNDERS & CODERS']
 
 # Geographic analysis
 LONDON_KEYWORD = 'london'               # Keyword for identifying London locations
@@ -48,6 +57,7 @@ VACANCY_FILE_PATTERN = 'app-underlying-data-vacancies-*.csv'
 STARTS_FILE_PATTERN = 'app-underlying-data-starts-*.csv'
 STARTS_ZIP_PATTERN = 'app-underlying-data-starts-*.zip'
 MONTHLY_STARTS_FILE_PATTERN = 'app-underlying-data-monthly-starts-*.csv'
+UNDERLYING_STARTS_FILE_PATTERN = 'app-underlying-data-starts-*.csv'
 
 # Data folder configuration
 APPRENTICESHIPS_FOLDER_PREFIX = 'apprenticeships'
@@ -66,6 +76,12 @@ FIELD_STARTS = 'starts'
 FIELD_START_MONTH = 'start_month'
 FIELD_START_QUARTER = 'start_quarter'
 FIELD_STD_FWK_NAME = 'std_fwk_name'
+
+# Underlying data field names
+FIELD_LEARNER_HOME_REGION = 'learner_home_region'
+FIELD_DELIVERY_REGION = 'delivery_region'
+FIELD_FUNDING_TYPE = 'funding_type'
+FIELD_STD_FWK_NAME_UNDERLYING = 'std_fwk_name'
 
 # Filter values
 FILTER_SOFTWARE_DEVELOPER = 'Software developer'

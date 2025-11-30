@@ -24,9 +24,9 @@ Arguments:
 
 Output:
     Default: Markdown table format for copy-paste into Notion inline tables
-    Shows regions with 10+ total starts in the most recent year, with others grouped as "All other regions"
+    Shows all regions sorted by most recent year total starts (descending)
     Includes a total row showing all starts across all regions by year
-    Most recent year shows quarterly breakdown (2024-25 Q1, 2024-25 Q2, etc.)
+    Most recent year shows quarterly breakdown only if Q4 is not yet available (2024-25 Q1, 2024-25 Q2, etc.)
 
 Examples:
     python3 regions.py                       # ST0116, latest file with quarterly breakdown
@@ -104,17 +104,18 @@ def extract_regional_starts(csv_file_path: str, standard_code: str = DEFAULT_STA
 def aggregate_starts_by_region_year(starts_data: List[Dict[str, Any]],
                                      most_recent_year: str = None) -> Dict[str, Dict[str, int]]:
     """
-    Aggregate starts data by region and year, with quarterly breakdown for most recent year.
+    Aggregate starts data by region and year, with optional quarterly breakdown for most recent year.
 
     Args:
         starts_data: List of starts data dictionaries
         most_recent_year: The most recent academic year (e.g., '2024-25').
                           If specified, this year will be broken down by quarters.
+                          If None, all years including the most recent will be shown as annual totals.
 
     Returns:
         Dictionary with region names as keys and year/quarter->starts dictionaries as values.
-        For the most recent year, keys will be like '2024-25 Q1', '2024-25 Q2', etc.
-        For other years, keys will be just the year like '2023-24'.
+        If most_recent_year is specified, keys for that year will be like '2024-25 Q1', '2024-25 Q2', etc.
+        For other years (or all years if most_recent_year is None), keys will be just the year like '2023-24'.
     """
     aggregated = {}
 
@@ -144,11 +145,15 @@ def aggregate_starts_by_region_year(starts_data: List[Dict[str, Any]],
 def prepare_regional_table_data(starts_data: List[Dict[str, Any]],
                                 min_starts: int = REGION_MIN_THRESHOLD) -> tuple:
     """
-    Prepare data for regional starts table formatting with quarterly breakdown for most recent year.
+    Prepare data for regional starts table formatting with conditional quarterly breakdown for most recent year.
+
+    The most recent year is shown as an annual total if Q4 is present (indicating the year is complete).
+    If Q4 is not yet available, the year is broken down by quarters.
+    All regions are shown individually, sorted by most recent year total starts (descending).
 
     Args:
         starts_data: List of starts data dictionaries
-        min_starts: Minimum starts in most recent year to show region separately
+        min_starts: Unused parameter, kept for API compatibility
 
     Returns:
         Tuple of (headers, rows, title)
@@ -169,8 +174,18 @@ def prepare_regional_table_data(starts_data: List[Dict[str, Any]],
 
     most_recent_year = sorted_base_years[-1]
 
-    # Aggregate data by region and year, with quarterly breakdown for most recent year
-    aggregated = aggregate_starts_by_region_year(starts_data, most_recent_year)
+    # Check if Q4 is present for the most recent year (indicating the year is complete)
+    quarters_in_recent_year = set(
+        record['quarter'] for record in starts_data
+        if record['year'] == most_recent_year and record['quarter'] > 0
+    )
+    has_q4 = 4 in quarters_in_recent_year
+
+    # Only do quarterly breakdown if Q4 is not present
+    year_for_quarterly_breakdown = None if has_q4 else most_recent_year
+
+    # Aggregate data by region and year, with quarterly breakdown for most recent year (if not complete)
+    aggregated = aggregate_starts_by_region_year(starts_data, year_for_quarterly_breakdown)
 
     # Get all year/quarter keys and sort them
     all_year_keys = set()
@@ -195,73 +210,50 @@ def prepare_regional_table_data(starts_data: List[Dict[str, Any]],
     # Identify quarterly keys for most recent year
     quarterly_keys = [key for key in year_keys if key.startswith(most_recent_year) and ' Q' in key]
 
-    # Build final year_keys list with total column before quarterly breakdown
-    final_year_keys = []
-    for key in year_keys:
-        # Add non-quarterly keys as they are
-        if ' Q' not in key:
-            final_year_keys.append(key)
-        # For the first quarterly key, add the total column before it
-        elif key == quarterly_keys[0]:
-            final_year_keys.append(most_recent_year)  # Total column
-            final_year_keys.append(key)
-        else:
-            final_year_keys.append(key)
+    # Build final year_keys list with total column before quarterly breakdown (only if we have quarters)
+    if quarterly_keys:
+        final_year_keys = []
+        for key in year_keys:
+            # Add non-quarterly keys as they are
+            if ' Q' not in key:
+                final_year_keys.append(key)
+            # For the first quarterly key, add the total column before it
+            elif key == quarterly_keys[0]:
+                final_year_keys.append(most_recent_year)  # Total column
+                final_year_keys.append(key)
+            else:
+                final_year_keys.append(key)
+        year_keys = final_year_keys
+    # If no quarterly breakdown, year_keys is already correct
 
-    year_keys = final_year_keys
-
-    # Calculate total starts for most recent year (sum of all quarters)
-    # to determine which regions to show separately
-    major_regions = []
-    other_regions = []
-
+    # Get all regions and sort by most recent year total starts (descending)
+    all_regions = []
     for region, year_data in aggregated.items():
-        # Sum all quarterly starts for most recent year
-        recent_starts = sum(
-            starts for key, starts in year_data.items()
-            if key.startswith(most_recent_year)
-        )
-        if recent_starts >= min_starts:
-            major_regions.append((region, year_data))
-        else:
-            other_regions.append((region, year_data))
+        all_regions.append((region, year_data))
 
-    # Sort major regions by most recent year total starts (descending)
-    major_regions.sort(key=lambda x: sum(
-        starts for key, starts in x[1].items()
-        if key.startswith(most_recent_year)
-    ), reverse=True)
+    # Sort all regions by most recent year total starts (descending)
+    if quarterly_keys:
+        all_regions.sort(key=lambda x: sum(
+            starts for key, starts in x[1].items()
+            if key.startswith(most_recent_year)
+        ), reverse=True)
+    else:
+        all_regions.sort(key=lambda x: x[1].get(most_recent_year, 0), reverse=True)
 
     # Calculate totals for each year/quarter key
     year_totals = {}
     for year_key in year_keys:
-        if year_key == most_recent_year:
+        if quarterly_keys and year_key == most_recent_year:
             # For the total column, sum all quarterly data
             year_totals[year_key] = sum(
                 region_data.get(q_key, 0)
                 for q_key in quarterly_keys
-                for _, region_data in aggregated.items()
+                for _, region_data in all_regions
             )
         else:
             year_totals[year_key] = sum(
                 region_data.get(year_key, 0)
-                for _, region_data in aggregated.items()
-            )
-
-    # Calculate "All other regions" totals
-    other_totals = {}
-    for year_key in year_keys:
-        if year_key == most_recent_year:
-            # For the total column, sum all quarterly data
-            other_totals[year_key] = sum(
-                region_data.get(q_key, 0)
-                for q_key in quarterly_keys
-                for _, region_data in other_regions
-            )
-        else:
-            other_totals[year_key] = sum(
-                region_data.get(year_key, 0)
-                for _, region_data in other_regions
+                for _, region_data in all_regions
             )
 
     # Build table data
@@ -273,11 +265,11 @@ def prepare_regional_table_data(starts_data: List[Dict[str, Any]],
     total_row = ['**Total**'] + [f"**{year_totals.get(year_key, 0)}**" for year_key in year_keys]
     rows.append(total_row)
 
-    # Major regions
-    for region, year_data in major_regions:
+    # All regions (sorted by most recent year total starts)
+    for region, year_data in all_regions:
         row_values = []
         for year_key in year_keys:
-            if year_key == most_recent_year:
+            if quarterly_keys and year_key == most_recent_year:
                 # For the total column, sum all quarterly data for this region
                 total_value = sum(year_data.get(q_key, 0) for q_key in quarterly_keys)
                 row_values.append(total_value)
@@ -286,21 +278,17 @@ def prepare_regional_table_data(starts_data: List[Dict[str, Any]],
         row = [region] + row_values
         rows.append(row)
 
-    # All other regions (if any)
-    if other_regions:
-        other_row = ['All other regions'] + [other_totals.get(year_key, 0) for year_key in year_keys]
-        rows.append(other_row)
-
     return (headers, rows, title)
 
 
 def format_regional_markdown(starts_data: List[Dict[str, Any]], min_starts: int = REGION_MIN_THRESHOLD) -> str:
     """
     Format regional starts data as a markdown table with years as columns and regions as rows.
+    All regions are shown individually, sorted by most recent year total starts.
 
     Args:
         starts_data: List of starts data dictionaries
-        min_starts: Minimum starts in most recent year to show region separately
+        min_starts: Unused parameter, kept for API compatibility
 
     Returns:
         Markdown table formatted string with header
@@ -321,10 +309,11 @@ def format_regional_markdown(starts_data: List[Dict[str, Any]], min_starts: int 
 def format_regional_csv(starts_data: List[Dict[str, Any]], min_starts: int = REGION_MIN_THRESHOLD) -> str:
     """
     Format regional starts data as CSV.
+    All regions are shown individually, sorted by most recent year total starts.
 
     Args:
         starts_data: List of starts data dictionaries
-        min_starts: Minimum starts in most recent year to show region separately
+        min_starts: Unused parameter, kept for API compatibility
 
     Returns:
         CSV formatted string
@@ -343,10 +332,11 @@ def format_regional_csv(starts_data: List[Dict[str, Any]], min_starts: int = REG
 def format_regional_table(starts_data: List[Dict[str, Any]], min_starts: int = REGION_MIN_THRESHOLD) -> str:
     """
     Format regional starts data as a console-friendly table.
+    All regions are shown individually, sorted by most recent year total starts.
 
     Args:
         starts_data: List of starts data dictionaries
-        min_starts: Minimum starts in most recent year to show region separately
+        min_starts: Unused parameter, kept for API compatibility
 
     Returns:
         Formatted table string
@@ -380,10 +370,11 @@ def format_regional_table(starts_data: List[Dict[str, Any]], min_starts: int = R
 def format_regional_tsv(starts_data: List[Dict[str, Any]], min_starts: int = REGION_MIN_THRESHOLD) -> str:
     """
     Format regional starts data as TSV.
+    All regions are shown individually, sorted by most recent year total starts.
 
     Args:
         starts_data: List of starts data dictionaries
-        min_starts: Minimum starts in most recent year to show region separately
+        min_starts: Unused parameter, kept for API compatibility
 
     Returns:
         TSV formatted string

@@ -138,6 +138,148 @@ python3 monthly.py ST0116 data.csv      # ST0116, specific file
 python3 monthly.py --table ST0113       # ST0113, table format
 ```
 
+### provider.py
+
+Extracts apprenticeship starts for a specific training provider and presents them by standard (apprenticeship type) with years as columns.
+
+**Features:**
+- **Automatic file discovery**: Finds and uses the most recent starts data file
+- Filters data for any training provider (defaults to "FOUNDERS & CODERS")
+- Shows all standards as individual rows
+- Creates year-over-year comparison tables
+- Includes total row showing all starts across standards
+
+**Usage:**
+```bash
+# Automatic discovery (uses most recent file)
+python3 provider.py [options] [provider_name]
+
+# Specify a file explicitly
+python3 provider.py [options] [provider_name] [input_file]
+```
+
+**Options:**
+- `--csv`, `-c`: Output in CSV format
+- `--table`: Output in console table format
+- `--tsv`, `-t`: Output in tab-separated format
+- `--help`, `-h`: Show help message
+
+**Default Provider:** `FOUNDERS & CODERS`
+
+**Examples:**
+```bash
+python3 provider.py                          # FOUNDERS & CODERS, latest file
+python3 provider.py "QA"                     # QA, latest file
+python3 provider.py "MAKERS ACADEMY"         # MAKERS ACADEMY, latest file
+python3 provider.py --csv "MULTIVERSE GROUP" # MULTIVERSE GROUP, CSV format
+```
+
+### regions.py
+
+Extracts apprenticeship starts by region for a specific standard, showing geographic distribution of apprenticeships.
+
+**Features:**
+- **Automatic file discovery**: Finds and uses the most recent starts data file
+- Filters data for any apprenticeship standard code (defaults to ST0116)
+- Shows all regions individually (sorted by most recent year)
+- Uses learner home region as proxy for employer location
+- Includes total row showing all starts across regions
+
+**Usage:**
+```bash
+# Automatic discovery (uses most recent file)
+python3 regions.py [options] [standard_code]
+
+# Specify a file explicitly
+python3 regions.py [options] [standard_code] [input_file]
+```
+
+**Options:**
+- `--csv`, `-c`: Output in CSV format
+- `--table`: Output in console table format
+- `--tsv`, `-t`: Output in tab-separated format
+- `--help`, `-h`: Show help message
+
+**Default Standard:** `ST0116` (Software Developer)
+
+**Examples:**
+```bash
+python3 regions.py              # ST0116, latest file
+python3 regions.py ST0113       # ST0113, latest file
+python3 regions.py --table      # ST0116, table format
+```
+
+### london_sme.py
+
+Extracts London-based SME apprenticeship starts for a specific standard, filtered by learner home region (London) and funding type (SME/other funding).
+
+**Features:**
+- **Automatic file discovery**: Finds and uses the most recent underlying starts file
+- Filters for London learners with SME (non-levy) funding
+- Includes manual adjustments for FOUNDERS & CODERS employer-provider apprenticeships
+- Shows all providers sorted by most recent year starts
+- Identifies and separates closed/rogue providers
+
+**Usage:**
+```bash
+# Automatic discovery (uses most recent file)
+python3 london_sme.py [options] [standard_code]
+
+# Specify a file explicitly
+python3 london_sme.py [options] [standard_code] [input_file]
+```
+
+**Options:**
+- `--csv`, `-c`: Output in CSV format
+- `--table`: Output in console table format
+- `--tsv`, `-t`: Output in tab-separated format
+- `--help`, `-h`: Show help message
+
+**Default Standard:** `ST0116` (Software Developer)
+
+**Examples:**
+```bash
+python3 london_sme.py           # ST0116, latest file
+python3 london_sme.py ST0113    # ST0113, latest file
+python3 london_sme.py --table   # ST0116, table format
+```
+
+### funding.py
+
+Extracts apprenticeship starts by funding type (employer size) for a specific standard, showing the split between large employers (levy-funded) and SMEs (other funding).
+
+**Features:**
+- **Automatic file discovery**: Finds and uses the most recent underlying starts file
+- Filters data for any apprenticeship standard code (defaults to ST0116)
+- Shows funding type as proxy for employer size:
+  - "Large employers (levy-funded)" = Companies with £3m+ annual payroll
+  - "SMEs (other funding)" = Small/medium employers with government co-investment
+- Includes total row showing all starts
+
+**Usage:**
+```bash
+# Automatic discovery (uses most recent file)
+python3 funding.py [options] [standard_code]
+
+# Specify a file explicitly
+python3 funding.py [options] [standard_code] [input_file]
+```
+
+**Options:**
+- `--csv`, `-c`: Output in CSV format
+- `--table`: Output in console table format
+- `--tsv`, `-t`: Output in tab-separated format
+- `--help`, `-h`: Show help message
+
+**Default Standard:** `ST0116` (Software Developer)
+
+**Examples:**
+```bash
+python3 funding.py              # ST0116, latest file
+python3 funding.py ST0113       # ST0113, latest file
+python3 funding.py --table      # ST0116, table format
+```
+
 ## Intelligent File Discovery
 
 All scripts automatically discover and use the most recent data files based on:
@@ -160,7 +302,13 @@ See [FILE_DISCOVERY.md](FILE_DISCOVERY.md) for complete documentation.
 
 The project uses a modular architecture with shared utilities:
 
-- **`vacancies.py`**, **`starts.py`**, **`monthly.py`** - Main analysis scripts
+- **`vacancies.py`** - Vacancy data analysis (employer/provider breakdown)
+- **`starts.py`** - Starts by provider (league table format)
+- **`provider.py`** - Starts by standard for a specific provider
+- **`monthly.py`** - Monthly starts breakdown
+- **`regions.py`** - Geographic distribution of starts
+- **`london_sme.py`** - London SME apprenticeships analysis
+- **`funding.py`** - Funding type (employer size) analysis
 - **`utils.py`** - Shared utilities (name cleaning, file discovery, table formatting)
 - **`config.py`** - Configuration constants (thresholds, field names, patterns)
 - **`test_utils.py`** - Unit tests for utility functions
@@ -264,17 +412,35 @@ python3 starts.py --table ST0116 > starts_report.txt
 ### Analysing Different Standards
 
 ```bash
-# Software Developer (Level 4)
+# Software Developer (Level 4) - ST0116
 python3 starts.py ST0116
 python3 monthly.py ST0116
+python3 regions.py ST0116
+python3 funding.py ST0116
+python3 london_sme.py ST0116
 
-# Data Analyst (Level 4)
+# Machine Learning Engineer (Level 7) - ST1398
+python3 starts.py ST1398
+python3 regions.py ST1398
+python3 funding.py ST1398
+
+# Data Analyst (Level 4) - ST0118
 python3 starts.py ST0118
 python3 monthly.py ST0118
 
-# Cyber Security Technologist (Level 3)
+# Cyber Security Technologist (Level 3) - ST0622
 python3 starts.py ST0622
 python3 monthly.py ST0622
+```
+
+### Analysing Specific Providers
+
+```bash
+# View all standards for a provider
+python3 provider.py "FOUNDERS & CODERS"
+python3 provider.py "QA"
+python3 provider.py "MAKERS ACADEMY"
+python3 provider.py "MULTIVERSE GROUP"
 ```
 
 ### Historical Data Analysis

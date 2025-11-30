@@ -27,7 +27,7 @@ Output:
     Default: Markdown table format for copy-paste into Notion inline tables
     Shows funding type breakdown (levy vs non-levy) by year
     Includes a total row showing all starts across all funding types by year
-    Most recent year shows quarterly breakdown (2024-25 Q1, 2024-25 Q2, etc.)
+    Most recent year shows quarterly breakdown only if Q4 is not yet available (2024-25 Q1, 2024-25 Q2, etc.)
 
 Examples:
     python3 funding.py                       # ST0116, latest file with quarterly breakdown
@@ -117,17 +117,18 @@ def extract_funding_starts(csv_file_path: str, standard_code: str = DEFAULT_STAN
 def aggregate_starts_by_funding_year(starts_data: List[Dict[str, Any]],
                                       most_recent_year: str = None) -> Dict[str, Dict[str, int]]:
     """
-    Aggregate starts data by funding type and year, with quarterly breakdown for most recent year.
+    Aggregate starts data by funding type and year, with optional quarterly breakdown for most recent year.
 
     Args:
         starts_data: List of starts data dictionaries
         most_recent_year: The most recent academic year (e.g., '2024-25').
                           If specified, this year will be broken down by quarters.
+                          If None, all years including the most recent will be shown as annual totals.
 
     Returns:
         Dictionary with funding type labels as keys and year/quarter->starts dictionaries as values.
-        For the most recent year, keys will be like '2024-25 Q1', '2024-25 Q2', etc.
-        For other years, keys will be just the year like '2023-24'.
+        If most_recent_year is specified, keys for that year will be like '2024-25 Q1', '2024-25 Q2', etc.
+        For other years (or all years if most_recent_year is None), keys will be just the year like '2023-24'.
     """
     aggregated = {}
 
@@ -156,7 +157,10 @@ def aggregate_starts_by_funding_year(starts_data: List[Dict[str, Any]],
 
 def prepare_funding_table_data(starts_data: List[Dict[str, Any]]) -> tuple:
     """
-    Prepare data for funding starts table formatting with quarterly breakdown for most recent year.
+    Prepare data for funding starts table formatting with conditional quarterly breakdown for most recent year.
+
+    The most recent year is shown as an annual total if Q4 is present (indicating the year is complete).
+    If Q4 is not yet available, the year is broken down by quarters.
 
     Args:
         starts_data: List of starts data dictionaries
@@ -180,8 +184,18 @@ def prepare_funding_table_data(starts_data: List[Dict[str, Any]]) -> tuple:
 
     most_recent_year = sorted_base_years[-1]
 
-    # Aggregate data by funding type and year, with quarterly breakdown for most recent year
-    aggregated = aggregate_starts_by_funding_year(starts_data, most_recent_year)
+    # Check if Q4 is present for the most recent year (indicating the year is complete)
+    quarters_in_recent_year = set(
+        record['quarter'] for record in starts_data
+        if record['year'] == most_recent_year and record['quarter'] > 0
+    )
+    has_q4 = 4 in quarters_in_recent_year
+
+    # Only do quarterly breakdown if Q4 is not present
+    year_for_quarterly_breakdown = None if has_q4 else most_recent_year
+
+    # Aggregate data by funding type and year, with quarterly breakdown for most recent year (if not complete)
+    aggregated = aggregate_starts_by_funding_year(starts_data, year_for_quarterly_breakdown)
 
     # Get all year/quarter keys and sort them
     all_year_keys = set()
@@ -206,25 +220,26 @@ def prepare_funding_table_data(starts_data: List[Dict[str, Any]]) -> tuple:
     # Identify quarterly keys for most recent year
     quarterly_keys = [key for key in year_keys if key.startswith(most_recent_year) and ' Q' in key]
 
-    # Build final year_keys list with total column before quarterly breakdown
-    final_year_keys = []
-    for key in year_keys:
-        # Add non-quarterly keys as they are
-        if ' Q' not in key:
-            final_year_keys.append(key)
-        # For the first quarterly key, add the total column before it
-        elif key == quarterly_keys[0]:
-            final_year_keys.append(most_recent_year)  # Total column
-            final_year_keys.append(key)
-        else:
-            final_year_keys.append(key)
-
-    year_keys = final_year_keys
+    # Build final year_keys list with total column before quarterly breakdown (only if we have quarters)
+    if quarterly_keys:
+        final_year_keys = []
+        for key in year_keys:
+            # Add non-quarterly keys as they are
+            if ' Q' not in key:
+                final_year_keys.append(key)
+            # For the first quarterly key, add the total column before it
+            elif key == quarterly_keys[0]:
+                final_year_keys.append(most_recent_year)  # Total column
+                final_year_keys.append(key)
+            else:
+                final_year_keys.append(key)
+        year_keys = final_year_keys
+    # If no quarterly breakdown, year_keys is already correct
 
     # Calculate totals for each year/quarter key
     year_totals = {}
     for year_key in year_keys:
-        if year_key == most_recent_year:
+        if quarterly_keys and year_key == most_recent_year:
             # For the total column, sum all quarterly data
             year_totals[year_key] = sum(
                 funding_data.get(q_key, 0)
@@ -257,7 +272,7 @@ def prepare_funding_table_data(starts_data: List[Dict[str, Any]]) -> tuple:
         year_data = aggregated[funding_type]
         row_values = []
         for year_key in year_keys:
-            if year_key == most_recent_year:
+            if quarterly_keys and year_key == most_recent_year:
                 # For the total column, sum all quarterly data for this funding type
                 total_value = sum(year_data.get(q_key, 0) for q_key in quarterly_keys)
                 row_values.append(total_value)
